@@ -1,0 +1,57 @@
+	Gradient Boosting explained
+ 
+Gradient Boosting là một dạng tổng quát của AdaBoost. Cụ thể vẫn là vấn đề tối ưu ban đầu:
+min_(c_n,w_n )⁡〖L(y,W_(n-1)+c_n w_n 〗)
+Nếu chúng ta coi chuỗi các model boosting là một hàm số W, thì mỗi hàm learner có thể coi là một tham số w. Để cực tiểu hóa hàm loss L(y,W) chúng ta áp dụng Gradient Descent:
+W_n=W_(n-1)-η δ/δw L(W_(n-1))
+Ta có thể thấy mối quan hệ sau:
+c_n w_n≈-η δ/δw L(W_(n-1))
+Với w_n là model được thêm vào tiếp theo. Khi đó model mới cần học để fit vào giá trị -η δ/δw L(W_(n-1)). Giá tri này còn có tên gọi khác là pseudo-residuals.        
+Quá trình triển khai thuật toán:                            
+	Khởi tạo giá trị pseudo-residuals là bằng nhau cho từng điểm dữ liệu
+	Tại vòng lặp thứ i
+	Train model mới được thêm vào để fit vào giá trị của pseudo-residuals đã có
+	Tính toán giá trị confidence score ci của model vừa train
+	Cập nhật model chính W = W + ci * wi
+	Cuối cùng tính toán lại giá trị pseudo-residuals -η δ/δw L(W_(n-1)) để làm label cho model tiếp theo
+	Sau đó lặp lại với vòng lặp i + 1
+	XGBoost = Extreme Gradient Boosting
+	 Regularized Learning Object 
+ 
+Cho bộ dữ liệu gồm n examples, m features D={(x_i,y_i )}  (|D|=n,x_i∈R^m,y_i∈R), một mô hình Tree Ensemble (Fig. 1) dùng K hàm để dự đoán đầu ra
+y ̂_i=ϕ(x_i )=∑_(k=1)^K▒〖f_k (x_i ) 〗,f_k∈F,
+(1)
+ở đó F={f(x)=w_q(x)  }  (q:R^m→T,w∈R^T) là không gian CART, q đại diện cho cấu trúc cây, T là số lượng nút lá, f_k tương ứng với 1 cấu trúc cây q và bộ trọng số lá w. Không giống cây quyết định, mỗi cây hồi quy sẽ có 1 điểm số cho mỗi nút lá, điểm của nút lá thứ i là w_i
+Để học được tập hợp các hàm số sử dụng trong mô hình, ta cần cực tiểu hóa hàm regularized objective sau:
+L(ϕ)=∑_i▒〖l(〗 (y_i ) ̂,y_i)+∑_k▒Ω(f_k ) 
+ở đó Ω(f)=γT+1/2 λ‖w‖^2	(2)
+Ở đây l là hàm lồi đo sự sai khác giữa giá trị dự đoán y ̂_i và giá trị hàm mục tiêu y_i, tham số thứ 2 là hàm phạt Ω cho độ phức tạp của mô hình. Một cách trực quan, mục tiêu chính quy (regularized objective) sẽ có xu hướng lựa chọn các mô hình đơn giản và dự đoán được.
+	 Gradient Tree Boosting 
+Mô hình tree ensemble ở phương trình (2) bao gồm các hàm đóng vai trò như tham số và không thể tối ưu bằng các phương pháp tối ưu thông thường trong không gian Euclid được. Thay vào đó mô hình được đào tạo theo cách bổ sung. Giả sử y ̂_i^((t)) là các dự đoán của ví dụ thứ i ở lần lặp thứ t, cần bổ sung hàm f_t để cực tiểu hóa hàm mục tiêu:
+L^((t))=∑_(i=1)^n▒〖l(〗 y_i,(y_i ) ̂^((t-1))+f_t (x_i))+ Ω(f_t )
+Sử dụng xấp xỉ bậc 2 để tối ưu nhanh mục tiêu: 
+L^((t))≃∑_(i=1)^n▒〖[l(〗 y_i,(y_i ) ̂^((t-1) ))+〖g_i f〗_t (x_i)+1/2 h_i f_t^2 (x_i)]+ Ω(f_t )
+ở đó g_i=δ_((y_i ) ̂^((t-1) ) ) l(y_i,(y_i ) ̂^((t-1) )) và h_i=δ_((y_i ) ̂^((t-1) ))^2 l(y_i,(y_i ) ̂^((t-1) )) là đạo hàm bậc 1 và bậc 2 của hàm loss. Ta có thể loại bỏ các hằng số để được hàm mục tiêu đơn giản ở bước thứ t:
+L ̃^((t))=∑_(i=1)^n▒[ 〖g_i f〗_t (x_i)+1/2 h_i f_t^2 (x_i)]+ Ω(f_t )	(3)
+ 
+Định nghĩa I_j={i│q(x_i )=j} là tập các instance của nút lá thứ j. Ta cần viết lại phương trình (3) bằng cách mở rộng Ω như bên dưới:
+L ̃^((t) )=∑_(i=1)^n▒[ 〖g_i f〗_t (x_i)+1/2 h_i f_t^2 (x_i)]+γT+1/2 λ∑_(j=1)^T▒w_j^2 
+=∑_(j=1)^T▒〖[(∑_(i∈I_j)▒g_i )w_j+1/2(∑_(i∈I_j)▒〖h_i+λ〗)w_j^2]〗+γT	(4)
+Đối với một cấu trúc cố định q(x), ta có thể tính trọng số tối ưu w_j^*  của nút lá thứ j bằng cách (đạo hàm bậc nhất bằng 0):
+w_j^*=-(∑_(i∈I_j)▒g_i )/(∑_(i∈I_j)▒〖h_i+λ〗)	(5)
+và tính giá trị tối ưu tương ứng
+L ̃^((t) ) (q)=-1/2 ∑_(j=1)^T▒〖(∑_(i∈I_j)▒g_i )〗^2/(∑_(i∈I_j)▒〖h_i+λ〗)+γT	(6)
+Phương trình (6) có thể được dùng như một hàm tính điểm để đo chất lượng của một cấu trúc cây q. 
+Thông thường, không thể liệt kê được tất cả các cấu trúc cây có thể q. Một thuật toán tham lam bắt đầu từ một nút lá duy nhất và lặp lại thêm các nhánh vào cây được sử dụng thay thế. Giả sử I_L và I_R là tập giá trị nút lá bên trái, bên phải sau khi chia. 〖I= I〗_L∪I_R, hàm giảm thiểu lỗi sau khi chia tách được cho bởi phương trình
+L_split=1/2 [〖(∑_(i∈I_L)▒g_i )〗^2/(∑_(i∈I_L)▒〖h_i+λ〗)+〖(∑_(i∈I_R)▒g_i )〗^2/(∑_(i∈I_R)▒〖h_i+λ〗)-〖(∑_(i∈I)▒g_i )〗^2/(∑_(i∈I)▒〖h_i+λ〗)]-γ	(7)
+Công thức này thường được dùng trong thực tế để làm điều kiện rẽ nhánh.
+XGBoost và Gradient Boosting đều dựa trên cùng ý tưởng đó là boosting thông qua gradient descent trong không gian hàm số. Tuy nhiên điều làm nên hiệu suất ấn tượng và khả năng tính toán của XGBoost nằm ở ba yếu tố:
+	Engineering để tránh overfitting như: sub-sampling row, column, column per split levels, áp dụng regularized L1 và L2
+	Khả năng tận dụng tối đa tài nguyên hệ thống: tính toán song song trên CPU/GPU, tính toán phân tán trên nhiều server, tính toán khi tài nguyên bị giới hạn, cache optimization để tăng tốc training.
+	Và cuối cùng là khả năng xử lý missing value, tiếp tục training bằng mô hình đã được build trước đó để tiết kiệm thời gian 
+	 Split finding algorithms
+
+
+	
+	
+	
